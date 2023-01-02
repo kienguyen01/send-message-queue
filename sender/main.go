@@ -1,12 +1,22 @@
-package main
+package sender
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+type Message struct {
+	SenderEmail   string
+	SenderName    string
+	ReceiverEmail string
+	ReceiverName  string
+	Body          string
+	Subject       string
+}
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -14,7 +24,7 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func main() {
+func SendMessage(m Message){
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -35,7 +45,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	body := "Hello World!"
+
+	jsonMessage, _ := json.Marshal(&m)
+
+	body := "{\"senderName\":\"Kien\",\"senderEmail\":\"641741@student.inholland.nl\",\"receiverName\":\"Kien\",\"receiverEmail\":\"kienguyen01@gmail.com\",\"body\":\"Description\",\"subject\":\"Subject\"}"
+
 	err = ch.PublishWithContext(ctx,
 		"",     // exchange
 		q.Name, // routing key
@@ -43,8 +57,9 @@ func main() {
 		false,  // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(body),
+			Body:        []byte(jsonMessage),
 		})
 	failOnError(err, "Failed to publish a message")
 	log.Printf(" [x] Sent %s\n", body)
 }
+

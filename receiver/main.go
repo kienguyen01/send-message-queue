@@ -1,10 +1,24 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"os"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
+
+type Message struct {
+	SenderEmail   string
+	SenderName    string
+	ReceiverEmail string
+	ReceiverName  string
+	Body          string
+	Subject       string
+}
 
 func main() {
 	log.Println("Consumer - Connecting to the Rabbit channel")
@@ -27,12 +41,12 @@ func main() {
 
 	msgs, err := ch.Consume(
 		"test-queue", // queue
-		"",          // consumer
-		true,        // auto-ack
-		false,       // exclusive
-		false,       // no-local
-		false,       // no-wait
-		nil,         // args
+		"",           // consumer
+		true,         // auto-ack
+		false,        // exclusive
+		false,        // no-local
+		false,        // no-wait
+		nil,          // args
 	)
 
 	//process messages from this channel
@@ -41,10 +55,31 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
+			var m Message
+			json.Unmarshal(d.Body, &m)
+
+			SendEmail(m)
 		}
 	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
+}
+
+func SendEmail(m Message) {
+	from := mail.NewEmail("Kien Nguyen", "641741@student.inholland.nl")
+	subject := "Sending with SendGrid is Fun"
+	to := mail.NewEmail("Example User", "kienguyen01@gmail.com")
+	plainTextContent := "and easy to do anywhere, even with Go " + m.Body
+	htmlContent := "<strong>and easy to do anywhere, even with Go</strong>"
+	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
+	client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
+	response, err := client.Send(message)
+	if err != nil {
+		log.Println(err)
+	} else {
+		fmt.Println(response.StatusCode)
+		fmt.Println(response.Body)
+		fmt.Println(response.Headers)
+	}
 }
