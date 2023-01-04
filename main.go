@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	sender "github.com/kienguyen01/send-message-queue/sender"
-	//receiver "github.com/kienguyen01/send-message-queue/receiver"
+	// receiver "github.com/kienguyen01/send-message-queue/receiver"
 )
 
 func main() {

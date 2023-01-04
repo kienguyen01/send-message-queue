@@ -21,6 +21,11 @@ type Message struct {
 }
 
 func main() {
+	client, err := NewELKClient("localhost", "9200")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	log.Println("Consumer - Connecting to the Rabbit channel")
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -59,6 +64,7 @@ func main() {
 			json.Unmarshal(d.Body, &m)
 
 			SendEmail(m)
+			client.SendLog("Receiving", m)
 		}
 	}()
 

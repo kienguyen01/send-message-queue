@@ -1,4 +1,4 @@
-package sender
+package main
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	receiver "github.com/kienguyen01/send-message-queue/receiver"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -24,7 +25,12 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func SendMessage(m Message){
+func SendMessage(m Message) {
+	client, err := receiver.NewELKClient("localhost", "9200")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -45,7 +51,6 @@ func SendMessage(m Message){
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-
 	jsonMessage, _ := json.Marshal(&m)
 
 	body := "{\"senderName\":\"Kien\",\"senderEmail\":\"641741@student.inholland.nl\",\"receiverName\":\"Kien\",\"receiverEmail\":\"kienguyen01@gmail.com\",\"body\":\"Description\",\"subject\":\"Subject\"}"
@@ -59,7 +64,8 @@ func SendMessage(m Message){
 			ContentType: "text/plain",
 			Body:        []byte(jsonMessage),
 		})
+
+	client.SendLog("sending", jsonMessage)
 	failOnError(err, "Failed to publish a message")
 	log.Printf(" [x] Sent %s\n", body)
 }
-
