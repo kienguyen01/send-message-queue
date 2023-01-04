@@ -67,11 +67,12 @@ func main() {
 }
 
 func SendEmail(m Message) {
-	from := mail.NewEmail("Kien Nguyen", "641741@student.inholland.nl")
-	subject := "Sending with SendGrid is Fun"
-	to := mail.NewEmail("Example User", "kienguyen01@gmail.com")
-	plainTextContent := "and easy to do anywhere, even with Go " + m.Body
-	htmlContent := "<strong>and easy to do anywhere, even with Go</strong>"
+	log.Println("send email triggered")
+	from := mail.NewEmail(m.SenderName, m.SenderEmail)
+	subject := m.Subject
+	to := mail.NewEmail(m.ReceiverName, m.ReceiverEmail)
+	plainTextContent := m.Body
+	htmlContent := ""
 	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
 	client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
 	response, err := client.Send(message)
