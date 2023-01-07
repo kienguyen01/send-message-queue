@@ -1,9 +1,10 @@
-package main
+package elk
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
@@ -13,11 +14,22 @@ type ELKClient struct {
 	client *elasticsearch.Client
 }
 
+type Message struct {
+	SenderEmail   string
+	SenderName    string
+	ReceiverEmail string
+	ReceiverName  string
+	Body          string
+	Subject       string
+}
+
 func NewELKClient(host string, port string) (*ELKClient, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("http://%s:%s", host, port),
 		},
+		Username: os.Getenv("Username"),
+		Password: os.Getenv("Password"),
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {

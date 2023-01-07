@@ -15,7 +15,7 @@ func main() {
 	fmt.Println("started listening to trigger")
 
 	// Create a handler for the "/trigger" endpoint
-	http.HandleFunc("/trigger", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
 		sendMessage(w, r)
 
 		// Send a response

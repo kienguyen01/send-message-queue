@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	receiver "github.com/kienguyen01/send-message-queue/receiver"
+	elk "github.com/kienguyen01/send-message-queue/elk"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -26,7 +26,7 @@ func failOnError(err error, msg string) {
 }
 
 func SendMessage(m Message) {
-	client, err := receiver.NewELKClient("localhost", "9200")
+	client, err := elk.NewELKClient("localhost", "9200")
 	if err != nil {
 		log.Fatal(err)
 	}
