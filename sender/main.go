@@ -53,7 +53,7 @@ func SendMessage(m Message) {
 
 	jsonMessage, _ := json.Marshal(&m)
 
-	body := "{\"senderName\":\"Kien\",\"senderEmail\":\"641741@student.inholland.nl\",\"receiverName\":\"Kien\",\"receiverEmail\":\"kienguyen01@gmail.com\",\"body\":\"Description\",\"subject\":\"Subject\"}"
+	//body := "{\"senderName\":\"Kien\",\"senderEmail\":\"641741@student.inholland.nl\",\"receiverName\":\"Kien\",\"receiverEmail\":\"kienguyen01@gmail.com\",\"body\":\"Description\",\"subject\":\"Subject\"}"
 
 	err = ch.PublishWithContext(ctx,
 		"",     // exchange
@@ -67,5 +67,5 @@ func SendMessage(m Message) {
 
 	client.SendLog("sending", jsonMessage)
 	failOnError(err, "Failed to publish a message")
-	log.Printf(" [x] Sent %s\n", body)
+	log.Printf(" [x] Sent %s\n", jsonMessage)
 }

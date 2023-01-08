@@ -1,0 +1,72 @@
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: send-message-queue
+  labels:
+    app: send-mesage-queue
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: send-message-queue
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: send-message-queue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: send-message-queue
+  template:
+    metadata:
+      labels:
+        app: send-message-queue
+    spec:
+      containers:
+      - name: send-message-queue
+        image: [image-name]
+        ports:
+        - containerPort: 80
+        env:
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: SENDGRID_API_KEY
+              key: SENDGRID_API_KEY
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: send-message-queue
+              key: PASSWORD
+        - name: USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: send-message-queue
+              key: USERNAME
+
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: send-message-queue
+type: Opaque
+data:
+  SENDGRID_API_KEY: # [base64-encoded-api-key]
+  PASSWORD: # [base64-encoded-password]
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: send-message-queue
+data:
+  username: # [username]
