@@ -15,8 +15,15 @@ func main() {
 	fmt.Println("started listening to trigger")
 
 	// Create a handler for the "/trigger" endpoint
-	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/Send", func(w http.ResponseWriter, r *http.Request) {
 		sendMessage(w, r)
+
+		// Send a response
+		fmt.Fprintf(w, "Function triggered successfully")
+	})
+
+	http.HandleFunc("/SendMulltiple", func(w http.ResponseWriter, r *http.Request) {
+		sendMultipleMessage(w, r)
 
 		// Send a response
 		fmt.Fprintf(w, "Function triggered successfully")
@@ -64,4 +71,29 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sender.SendMessage(m)
+}
+
+func sendMultipleMessage(w http.ResponseWriter, r *http.Request) {
+	headerContentTtype := r.Header.Get("Content-Type")
+	if headerContentTtype != "application/json" {
+		response(w, "Content Type is not application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var m sender.MultipleReceiverMessage
+	var unmarshalErr *json.UnmarshalTypeError
+
+	body := json.NewDecoder(r.Body)
+	///body.DisallowUnknownFields()
+
+	err := body.Decode(&m)
+
+	if err != nil {
+		if errors.As(err, &unmarshalErr) {
+			response(w, "Bad Request. Wrong Type provided for field "+unmarshalErr.Field, http.StatusBadRequest)
+		} else {
+			response(w, "Bad Request "+err.Error(), http.StatusBadRequest)
+		}
+	}
+	sender.SendMulltipleMessages(m)
 }

@@ -2,10 +2,13 @@ package elk
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
 )
@@ -21,15 +24,21 @@ type Message struct {
 	ReceiverName  string
 	Body          string
 	Subject       string
+	Timestamp     time.Time
 }
 
 func NewELKClient(host string, port string) (*ELKClient, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
-			fmt.Sprintf("http://%s:%s", host, port),
+			fmt.Sprintf("https://%s:%s", host, port),
 		},
-		Username: os.Getenv("Username"),
-		Password: os.Getenv("Password"),
+		Username: os.Getenv("USERNAME"),
+		Password: os.Getenv("PASSWORD"),
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
@@ -38,7 +47,7 @@ func NewELKClient(host string, port string) (*ELKClient, error) {
 	return &ELKClient{client: client}, nil
 }
 
-func (c *ELKClient) SendLog(index string, message interface{}) error {
+func (c *ELKClient) SendLog(index string, message *Message) error {
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
 		return err
@@ -49,6 +58,7 @@ func (c *ELKClient) SendLog(index string, message interface{}) error {
 		c.client.Index.WithContext(context.Background()),
 	)
 	if err != nil {
+		fmt.Println("Error sending log to Elasticsearch:", err)
 		return err
 	}
 	defer res.Body.Close()
