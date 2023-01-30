@@ -22,7 +22,7 @@ func main() {
 		fmt.Fprintf(w, "Function triggered successfully")
 	})
 
-	http.HandleFunc("/SendMulltiple", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/SendMultiple", func(w http.ResponseWriter, r *http.Request) {
 		sendMultipleMessage(w, r)
 
 		// Send a response
@@ -41,6 +41,7 @@ func failOnError(err error, msg string) {
 
 func response(w http.ResponseWriter, message string, httpStatusCode int) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(httpStatusCode)
 	resp := make(map[string]string)
 	resp["message"] = message
@@ -70,7 +71,10 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 			response(w, "Bad Request "+err.Error(), http.StatusBadRequest)
 		}
 	}
+	response(w, "Sent multiple messages ", http.StatusOK)
+
 	sender.SendMessage(m)
+
 }
 
 func sendMultipleMessage(w http.ResponseWriter, r *http.Request) {
@@ -92,8 +96,11 @@ func sendMultipleMessage(w http.ResponseWriter, r *http.Request) {
 		if errors.As(err, &unmarshalErr) {
 			response(w, "Bad Request. Wrong Type provided for field "+unmarshalErr.Field, http.StatusBadRequest)
 		} else {
-			response(w, "Bad Request "+err.Error(), http.StatusBadRequest)
+			response(w, "Bad Request ", http.StatusBadRequest)
 		}
 	}
+	response(w, "Sent multiple messages ", http.StatusOK)
+
 	sender.SendMulltipleMessages(m)
+
 }

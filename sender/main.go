@@ -36,7 +36,7 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func SendMessage(m Message) {
+func SendMessage(m Message) error {
 	ELKClient, err := elk.NewELKClient("localhost", "9200")
 	if err != nil {
 		log.Fatal(err)
@@ -51,12 +51,12 @@ func SendMessage(m Message) {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"test-queue", // name
-		false,        // durable
-		false,        // delete when unused
-		false,        // exclusive
-		false,        // no-wait
-		nil,          // arguments
+		"message", // name
+		false,     // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -86,9 +86,11 @@ func SendMessage(m Message) {
 
 	failOnError(err, "Failed to publish a message")
 	log.Printf(" [x] Sent %s\n", jsonMessage)
+
+	return err
 }
 
-func SendMulltipleMessages(m MultipleReceiverMessage) {
+func SendMulltipleMessages(m MultipleReceiverMessage) error {
 	ELKClient, err := elk.NewELKClient("localhost", "9200")
 	if err != nil {
 		log.Fatal(err)
@@ -143,6 +145,8 @@ func SendMulltipleMessages(m MultipleReceiverMessage) {
 	}
 
 	failOnError(err, "Failed to publish a message")
+
+	return err
 }
 
 func transformMessage(msg MultipleReceiverMessage) []Message {
