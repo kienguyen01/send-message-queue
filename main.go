@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os",
 	"net/http"
 
 	sender "github.com/kienguyen01/send-message-queue/sender"
@@ -49,58 +50,42 @@ func response(w http.ResponseWriter, message string, httpStatusCode int) {
 	w.Write(jsonResp)
 }
 
-func sendMessage(w http.ResponseWriter, r *http.Request) {
-	headerContentTtype := r.Header.Get("Content-Type")
-	if headerContentTtype != "application/json" {
+func processMessage(w http.ResponseWriter, r *http.Request, decodeFunc func(*json.Decoder) error) {
+	headerContentType := r.Header.Get("Content-Type")
+	if headerContentType != "application/json" {
 		response(w, "Content Type is not application/json", http.StatusUnsupportedMediaType)
 		return
 	}
 
-	var m sender.Message
-	var unmarshalErr *json.UnmarshalTypeError
-
 	body := json.NewDecoder(r.Body)
-	///body.DisallowUnknownFields()
+	//body.DisallowUnknownFields()
 
-	err := body.Decode(&m)
-
+	err := decodeFunc(body)
 	if err != nil {
+		var unmarshalErr *json.UnmarshalTypeError
 		if errors.As(err, &unmarshalErr) {
 			response(w, "Bad Request. Wrong Type provided for field "+unmarshalErr.Field, http.StatusBadRequest)
 		} else {
 			response(w, "Bad Request "+err.Error(), http.StatusBadRequest)
 		}
-	}
-	response(w, "Sent multiple messages ", http.StatusOK)
-
-	sender.SendMessage(m)
-
-}
-
-func sendMultipleMessage(w http.ResponseWriter, r *http.Request) {
-	headerContentTtype := r.Header.Get("Content-Type")
-	if headerContentTtype != "application/json" {
-		response(w, "Content Type is not application/json", http.StatusUnsupportedMediaType)
 		return
 	}
 
-	var m sender.MultipleReceiverMessage
-	var unmarshalErr *json.UnmarshalTypeError
+	response(w, "Sent messages", http.StatusOK)
+}
 
-	body := json.NewDecoder(r.Body)
-	///body.DisallowUnknownFields()
+func sendMessage(w http.ResponseWriter, r *http.Request) {
+	processMessage(w, r, func(decoder *json.Decoder) error {
+		var m sender.Message
+		return decoder.Decode(&m)
+	})
+	sender.SendMessage(m)
+}
 
-	err := body.Decode(&m)
-
-	if err != nil {
-		if errors.As(err, &unmarshalErr) {
-			response(w, "Bad Request. Wrong Type provided for field "+unmarshalErr.Field, http.StatusBadRequest)
-		} else {
-			response(w, "Bad Request ", http.StatusBadRequest)
-		}
-	}
-	response(w, "Sent multiple messages ", http.StatusOK)
-
-	sender.SendMulltipleMessages(m)
-
+func sendMultipleMessage(w http.ResponseWriter, r *http.Request) {
+	processMessage(w, r, func(decoder *json.Decoder) error {
+		var m sender.MultipleReceiverMessage
+		return decoder.Decode(&m)
+	})
+	sender.SendMultipleMessages(m)
 }

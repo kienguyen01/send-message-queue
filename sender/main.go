@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"time"
+	"os"
 
 	elk "github.com/kienguyen01/send-message-queue/elk"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -36,19 +37,17 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func SendMessage(m Message) error {
-	ELKClient, err := elk.NewELKClient("localhost", "9200")
+func setupMessageQueue() (*amqp.Connection, *amqp.Channel, amqp.Queue, error) {
+	conn, err := amqp.Dial(os.Getenv("RABBITMQ_HOST"))
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, amqp.Queue{}, err
 	}
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
 	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
+	if err != nil {
+		conn.Close()
+		return nil, nil, amqp.Queue{}, err
+	}
 
 	q, err := ch.QueueDeclare(
 		"message", // name
@@ -58,14 +57,23 @@ func SendMessage(m Message) error {
 		false,     // no-wait
 		nil,       // arguments
 	)
-	failOnError(err, "Failed to declare a queue")
+	if err != nil {
+		ch.Close()
+		conn.Close()
+		return nil, nil, amqp.Queue{}, err
+	}
+
+	return conn, ch, q, nil
+}
+
+func publishMessage(ch *amqp.Channel, q amqp.Queue, message interface{}) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	m.Timestamp = time.Now()
-	jsonMessage, _ := json.Marshal(&m)
-
-	//body := "{\"senderName\":\"Kien\",\"senderEmail\":\"641741@student.inholland.nl\",\"receiverName\":\"Kien\",\"receiverEmail\":\"kienguyen01@gmail.com\",\"body\":\"Description\",\"subject\":\"Subject\"}"
+	jsonMessage, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
 
 	err = ch.PublishWithContext(ctx,
 		"",     // exchange
@@ -74,77 +82,72 @@ func SendMessage(m Message) error {
 		false,  // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(jsonMessage),
+			Body:        jsonMessage,
 		})
-
-	//to elk
-	elkMessage := transformELKMessage(m)
-	errElk := elk.SendMessageToELK(ELKClient, &elkMessage, "message")
-	if errElk != nil {
-		log.Printf("Error elk: %s", errElk)
+	if err != nil {
+		return err
 	}
 
-	failOnError(err, "Failed to publish a message")
 	log.Printf(" [x] Sent %s\n", jsonMessage)
-
-	return err
+	return nil
 }
 
-func SendMulltipleMessages(m MultipleReceiverMessage) error {
-	ELKClient, err := elk.NewELKClient("localhost", "9200")
+func SendMessage(m Message) error {
+	ELKClient, err := elk.NewELKClient(os.Getenv("ELASTIC_HOST"), os.Getenv("ELASTIC_PORT"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
+	conn, ch, q, err := setupMessageQueue()
+	if err != nil {
+		failOnError(err, "Failed to set up the message queue")
+	}
 	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	q, err := ch.QueueDeclare(
-		"message", // name
-		false,     // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	m.Timestamp = time.Now()
+	err = publishMessage(ch, q, m)
+	failOnError(err, "Failed to publish a message")
+
+	// to ELK
+	elkMessage := transformELKMessage(m)
+	err = elk.SendMessageToELK(ELKClient, &elkMessage, "message")
+	if err != nil {
+		log.Printf("Error elk: %s", err)
+	}
+
+	return err
+}
+
+func SendMultipleMessages(m MultipleReceiverMessage) error {
+	ELKClient, err := elk.NewELKClient(os.Getenv("ELASTIC_HOST"), os.Getenv("ELASTIC_PORT"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	conn, ch, q, err := setupMessageQueue()
+	if err != nil {
+		failOnError(err, "Failed to set up the message queue")
+	}
+	defer conn.Close()
+	defer ch.Close()
 
 	m.Timestamp = time.Now()
-
 	output := transformMessage(m)
 
 	for _, msg := range output {
-		jsonMessage, _ := json.Marshal(&msg)
+		err = publishMessage(ch, q, msg)
+		if err != nil {
+			failOnError(err, "Failed to publish a message")
+		}
 
-		err = ch.PublishWithContext(ctx,
-			"",     // exchange
-			q.Name, // routing key
-			false,  // mandatory
-			false,  // immediate
-			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(jsonMessage),
-			})
-
-		log.Printf("[x] Sent  %s", msg)
-
-		//to elk
+		// to ELK
 		elkMessage := transformELKMessage(msg)
-		err := elk.SendMessageToELK(ELKClient, &elkMessage, "message")
+		err = elk.SendMessageToELK(ELKClient, &elkMessage, "message")
 		if err != nil {
 			log.Printf("Error elk: %s", err)
 		}
-
 	}
-
-	failOnError(err, "Failed to publish a message")
 
 	return err
 }
